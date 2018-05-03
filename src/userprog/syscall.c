@@ -333,23 +333,30 @@ void readSyscall(struct intr_frame *f)
 
 void writeSyscall(struct intr_frame *f) {
   //Getting arguements from stack
+  //printf("before get_user");
   int fd = get_user(f->esp + 4);
+  //printf("after get_user");
 
   //unsigned size = get_user(f->esp + 12);
+
   unsigned size = get_user(f->esp + 15);
   size =size*256+ get_user(f->esp + 14);
   size =size*256+ get_user(f->esp + 13);
   size =size*256+ get_user(f->esp + 12);
 
-  //printf("Buffer start address: '%p'\n", start_of_buffer);
+  //printf("print anything");
+
 
   unsigned long buffer_address = get_user(f->esp + 11);
   buffer_address = buffer_address * 256 + get_user(f->esp + 10);
   buffer_address = buffer_address * 256 + get_user(f->esp + 9);
   buffer_address = buffer_address * 256 + get_user(f->esp + 8);
 
+  //printf("after buffers");
+
   void* buffer=(void*)buffer_address;
   if(!isValidAddress(buffer)){
+    //printf("invalid buffer"); 
     exitWithError();
   }
   if((fd<=0)||fd>thread_current()->fd){
@@ -396,6 +403,7 @@ void writeSyscall(struct intr_frame *f) {
   //After we write to the file we release the lock and
   //Setup our interupt frame to return to the user
   lock_release(&file_lock);
+  //printf("exiting write syscall");
   f->eax=num_bytes;
   return;
 
@@ -511,7 +519,7 @@ syscall_handler(struct intr_frame *f) {
   p[6]=open;//Open
   p[7]=filesizesyscall;//Filesize
   p[8]=readSyscall;//Read
-  p[9]=writeSyscall;      //Write
+  p[9]=writeSyscall;//Write
   p[10]=seeksyscall;//seek
   p[11]=placeHolderSyscall;//tell
   p[12]=closeSyscall;//close
@@ -527,7 +535,7 @@ syscall_handler(struct intr_frame *f) {
 
 
     int index=get_user(stack_pointer);
-    //printf("RUNNING SYSCALL %i\n",index);
+   // printf("RUNNING SYSCALL %i\n",index);
     if(index<0 || index>12){
       thread_current()->exit_status=-1;
       thread_exit();
@@ -536,6 +544,8 @@ syscall_handler(struct intr_frame *f) {
     return;
 
   }
+
+ // printf("exited syscall handler");
 
   thread_exit();
 }

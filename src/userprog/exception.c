@@ -1,15 +1,22 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include "userprog/process.h"
 #include "userprog/gdt.h"
+#include "threads/palloc.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-
+#include "threads/vaddr.h"
+#include "vm/frame.h"
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+
+struct list frame_table;
+
+
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -123,6 +130,8 @@ page_fault (struct intr_frame *f)
  bool write;        /* True: access was write, false: access was read. */
  bool user;         /* True: access by user, false: access by kernel. */
  void *fault_addr;  /* Fault address. */
+ int success = 1;
+ //printf("Z");
 
  /* Obtain faulting address, the virtual address that was
     accessed to cause the fault.  It may point to code or to
@@ -139,6 +148,7 @@ page_fault (struct intr_frame *f)
   f->eip=f->eax;
   f->eax=-1;
   thread_current()->exit_status=-1;
+  //printf("sanichole");
   thread_exit();
   return;
  }
@@ -151,6 +161,17 @@ page_fault (struct intr_frame *f)
  /* Count page faults. */
  page_fault_cnt++;
 
+ if(fault_addr == NULL || fault_addr >= PHYS_BASE || fault_addr < 0x08048000){
+  success = 0;
+  //printf("malasis");
+ }
+ else if(fault_addr > (f->esp+32) || fault_addr < (f->esp-32))
+ {
+  //printf("get_user Failing");
+  success = 0;
+ }
+
+
  /* Determine cause. */
  not_present = (f->error_code & PF_P) == 0;
  write = (f->error_code & PF_W) != 0;
@@ -161,7 +182,21 @@ page_fault (struct intr_frame *f)
          not_present ? "not present" : "rights violation",
          write ? "writing" : "reading",
          user ? "user" : "kernel");*/
- thread_exit();
+ if(success)
+ {
+    //printf("poop");
+    void* upage = pg_round_down(fault_addr);
+    void* kpage = (void*)palloc_get_page(PAL_USER);
+    bool writable = true;
+    bool correct = pagedir_set_page(thread_current()->pagedir, upage, kpage, writable);
+
+    return;
+ }
+ else
+ {
+    //printf("bogus");
+    thread_exit();
+ }
 
  /* To implement virtual memory, delete the rest of the function
     body, and replace it with code that brings in the page to
